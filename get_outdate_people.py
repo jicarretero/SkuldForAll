@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+##
+# Copyright 2018 FIWARE Foundation, e.V.
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+##
+
+
+from functions import *
+import json
+
+
+REGION = 'Noida'
+DEFAULT_COMMUNITY_DURATION = 270
+DEFAULT_TRIAL_DURATION = 15
+
+
+def get_role_ids(data, role_name):
+    return [x['id'] for x in data['roles'] if x['name'] == role_name][0]
+
+
+def get_region_project_ids(data):
+    # Get Region's projects from "endpoint_groups" info
+    region_projects = [x['projects'] for x in data['endpoint_groups'] 
+            if x.has_key('region_id') and x['region_id'] == REGION][0]
+
+    # Get an array with project ids in noida. This will help to filter later
+    return [x['id'] for x in region_projects]
+
+
+def get_region_userids_for_projects(data, region_project_ids):
+    # Filter role assignmets for Regions's projects - roles (list(set(... --- to remove duplicate entries
+    region_role_assignments = [x for x in data['role_assignments'] 
+            if x.has_key('scope_project_id') and x['scope_project_id'] in region_project_ids]
+
+    # Get an array with users for Region's project --- 
+    return list(set([x['user_id'] for x in region_role_assignments]))
+
+
+if __name__ == '__main__':
+    # Load /tmp/all.json file, which should be the output of script "interesting_info.py"
+    data = load_json_file('/tmp/all.json')
+
+    # Get Trial an Community roles IDs
+    trial_role_id = get_role_ids(data, 'trial')
+    community_role_id = get_role_ids(data, 'community')
+
+    # Get List of Project IDs assigned to the region REGION
+    region_project_ids = get_region_project_ids(data)
+
+    region_users = get_region_userids_for_projects(data, region_project_ids)
+
+    # Get trial role_assignments
+    trial_users = [x['user_id'] for x in data['role_assignments'] 
+            if x.has_key('scope_domain_id') and x['role_id'] == trial_role_id and x['user_id'] in region_users]
+
+    # Get community role_assignments
+    community_users = [x['user_id'] for x in data['role_assignments'] 
+            if x.has_key('scope_domain_id') and x['role_id'] == community_role_id and x['user_id'] in region_users]
+
+    # Get Region users dict by user_id --- Easier to query
+    user_ids = get_dict_from_data(data, 'users', 'id')
+
+    print "Trials...."
+    for user in trial_users:
+        try:
+            duration = user_ids[user]['trial_duration'] \
+                    if user_ids[user].has_key('trial_duration') else DEFAULT_TRIAL_DURATION
+            creation_date = str_to_date(user_ids[user]['trial_started_at'])
+            days = days_expired(creation_date, duration)
+            email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
+            print user, user_ids[user]['trial_started_at'], duration, days, email
+        except Exception as e:
+            print "ERROR:", user, e
+        
+
+    print "Communities...."
+    for user in community_users:
+        try:
+            duration = user_ids[user]['community_duration'] \
+                    if user_ids[user].has_key('community_duration') else DEFAULT_COMMUNITY_DURATION
+            creation_date = str_to_date(user_ids[user]['community_started_at'])
+            days = days_expired(creation_date, duration)
+            email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
+            print user, user_ids[user]['community_started_at'], duration, days, email
+        except Exception as e:
+            print "ERROR:", user, e
