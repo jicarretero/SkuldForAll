@@ -4,6 +4,8 @@
 ## Prerequistes
 You'll need **python-openstackclient** installed so the script can properly work. The script uses python 2.7.
 
+It is interesting to configure the file **fiware-users.ini** whith the appropiate values for the region before running the scripts.
+
 ## Description
 These are 2 scripts thought to work one after the other. The script **interesting_info.py** will get a lot of information from a FIWARE Openstack node, including users, projects, role_assignments, etc. So an administrator can see a lot of information in a json output.
 
