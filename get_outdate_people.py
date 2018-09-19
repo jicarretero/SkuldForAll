@@ -23,9 +23,10 @@ import json
 
 
 REGION = 'Noida'
+JSON_DATA_FILE = '/tmp/all.json'
+
 DEFAULT_COMMUNITY_DURATION = 270
 DEFAULT_TRIAL_DURATION = 15
-
 
 def get_role_ids(data, role_name):
     return [x['id'] for x in data['roles'] if x['name'] == role_name][0]
@@ -49,9 +50,27 @@ def get_region_userids_for_projects(data, region_project_ids):
     return list(set([x['user_id'] for x in region_role_assignments]))
 
 
+def get_user_ids(data):
+    # Get Region users dict by user_id --- Easier to query
+    user_ids = get_dict_from_data(data, 'users', 'id')
+
+    # Fill user_ids with projects they belong to --- just to be queried later
+    for assignment in data['role_assignments']:
+        if assignment.has_key('scope_project_id'):
+            user = assignment['user_id']
+            project = assignment['scope_project_id']
+            if user_ids.has_key(user):
+                if not user_ids[user].has_key('projects'):
+                    user_ids[user]['projects'] = []
+
+                if not project in user_ids[user]['projects']:
+                    user_ids[user]['projects'].append(project)
+    return user_ids
+
+
 if __name__ == '__main__':
-    # Load /tmp/all.json file, which should be the output of script "interesting_info.py"
-    data = load_json_file('/tmp/all.json')
+    # Load JSON_DATA_FILE file, which should be the output of script "interesting_info.py"
+    data = load_json_file(JSON_DATA_FILE)
 
     # Get Trial an Community roles IDs
     trial_role_id = get_role_ids(data, 'trial')
@@ -70,10 +89,8 @@ if __name__ == '__main__':
     community_users = [x['user_id'] for x in data['role_assignments'] 
             if x.has_key('scope_domain_id') and x['role_id'] == community_role_id and x['user_id'] in region_users]
 
-    # Get Region users dict by user_id --- Easier to query
-    user_ids = get_dict_from_data(data, 'users', 'id')
+    user_ids = get_user_ids(data)
 
-    print "Trials...."
     for user in trial_users:
         try:
             duration = user_ids[user]['trial_duration'] \
@@ -81,12 +98,12 @@ if __name__ == '__main__':
             creation_date = str_to_date(user_ids[user]['trial_started_at'])
             days = days_expired(creation_date, duration)
             email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
-            print user, user_ids[user]['trial_started_at'], duration, days, email
+            print "T", user, user_ids[user]['trial_started_at'], duration, days, \
+                    email, len(user_ids[user]['projects'])
         except Exception as e:
             print "ERROR:", user, e
         
 
-    print "Communities...."
     for user in community_users:
         try:
             duration = user_ids[user]['community_duration'] \
@@ -94,6 +111,7 @@ if __name__ == '__main__':
             creation_date = str_to_date(user_ids[user]['community_started_at'])
             days = days_expired(creation_date, duration)
             email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
-            print user, user_ids[user]['community_started_at'], duration, days, email
+            print "C", user, user_ids[user]['community_started_at'], duration, days, \
+                  email, len(user_ids[user]['projects'])
         except Exception as e:
             print "ERROR:", user, e
