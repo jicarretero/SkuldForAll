@@ -20,9 +20,9 @@
 
 from functions import *
 import json
+import sys
 
-
-REGION = 'Noida'
+REGION = 'Spain2'
 JSON_DATA_FILE = '/tmp/all.json'
 
 DEFAULT_COMMUNITY_DURATION = 270
@@ -53,22 +53,40 @@ def get_region_userids_for_projects(data, region_project_ids):
 def get_user_ids(data):
     # Get Region users dict by user_id --- Easier to query
     user_ids = get_dict_from_data(data, 'users', 'id')
+    project_ids = get_dict_from_data(data, 'projects', 'id')
 
     # Fill user_ids with projects they belong to --- just to be queried later
     for assignment in data['role_assignments']:
         if assignment.has_key('scope_project_id'):
             user = assignment['user_id']
             project = assignment['scope_project_id']
+
+            # We fill user_ids with projects
             if user_ids.has_key(user):
                 if not user_ids[user].has_key('projects'):
                     user_ids[user]['projects'] = []
 
                 if not project in user_ids[user]['projects']:
                     user_ids[user]['projects'].append(project)
-    return user_ids
+
+            # We fill project_ids with users
+            if user_ids.has_key(user):
+                if not project_ids[project].has_key('users'):
+                    project_ids[project]['users'] = []
+
+                if not user in project_ids[project]['users']:
+                    project_ids[project]['users'].append(user)
+
+    return user_ids, project_ids
 
 
 if __name__ == '__main__':
+
+    if len(sys.argv) > 1:
+        output_type = sys.argv[1]
+    else:
+        output_type = "text"
+
     # Load JSON_DATA_FILE file, which should be the output of script "interesting_info.py"
     data = load_json_file(JSON_DATA_FILE)
 
@@ -89,7 +107,8 @@ if __name__ == '__main__':
     community_users = [x['user_id'] for x in data['role_assignments'] 
             if x.has_key('scope_domain_id') and x['role_id'] == community_role_id and x['user_id'] in region_users]
 
-    user_ids = get_user_ids(data)
+
+    user_ids, project_ids = get_user_ids(data)
 
     for user in trial_users:
         try:
@@ -97,12 +116,14 @@ if __name__ == '__main__':
                     if user_ids[user].has_key('trial_duration') else DEFAULT_TRIAL_DURATION
             creation_date = str_to_date(user_ids[user]['trial_started_at'])
             days = days_expired(creation_date, duration)
+            user_ids[user]['days_expired'] = days
             email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
-            print "T", user, user_ids[user]['trial_started_at'], duration, days, \
-                    email, len(user_ids[user]['projects'])
+            user_ids[user]['type'] = 'Trial'
+            if output_type != "json":
+                print "T", user, user_ids[user]['trial_started_at'], duration, days, \
+                        email, len(user_ids[user]['projects'])
         except Exception as e:
-            print "ERROR:", user, e
-        
+            sys.stderr.write("ERROR trial_users:"+ user +  str(e) + "\n")
 
     for user in community_users:
         try:
@@ -110,8 +131,16 @@ if __name__ == '__main__':
                     if user_ids[user].has_key('community_duration') else DEFAULT_COMMUNITY_DURATION
             creation_date = str_to_date(user_ids[user]['community_started_at'])
             days = days_expired(creation_date, duration)
+            user_ids[user]['days_expired'] = days
             email = user_ids[user]['email'] if user_ids[user].has_key('email') else user_ids[user]['name']
-            print "C", user, user_ids[user]['community_started_at'], duration, days, \
-                  email, len(user_ids[user]['projects'])
+            user_ids[user]['type'] = 'Community'
+            if output_type != "json":
+                print "C", user, user_ids[user]['community_started_at'], duration, days, \
+                      email, len(user_ids[user]['projects'])
         except Exception as e:
-            print "ERROR:", user, e
+            sys.stderr.write("ERROR community_users:"+ user + str(e) + "\n")
+
+    if output_type == "json":
+        output = {"users": user_ids, "projects": project_ids}
+        # print(json.dumps(output))
+        print json.dumps(output)
