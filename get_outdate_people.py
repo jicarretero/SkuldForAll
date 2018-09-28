@@ -97,6 +97,7 @@ if __name__ == '__main__':
     # Get List of Project IDs assigned to the region REGION
     region_project_ids = get_region_project_ids(data)
 
+
     region_users = get_region_userids_for_projects(data, region_project_ids)
 
     # Get trial role_assignments
@@ -109,6 +110,9 @@ if __name__ == '__main__':
 
 
     user_ids, project_ids = get_user_ids(data)
+
+    for pjid in region_project_ids:
+        project_ids[pjid]['Region'] = REGION
 
     for user in trial_users:
         try:
