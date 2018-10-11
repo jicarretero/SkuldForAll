@@ -32,12 +32,15 @@ projects = {}
 whitelist = []
 
 def build_whitelist():
-    fd = open(WHITE_LIST)
-    lines=fd.read().splitlines()
+    try:
+        fd = open(WHITE_LIST)
+        lines=fd.read().splitlines()
     
-    fd.close()
+        fd.close()
 
-    return lines
+        return lines
+    except:
+        return []
 
 
 def match(user):
