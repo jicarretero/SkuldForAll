@@ -18,6 +18,9 @@
 ##
 
 
+__author__ = "Jose Ignacio Carretero Guarde"
+
+
 from functions import *
 import json
 import sys

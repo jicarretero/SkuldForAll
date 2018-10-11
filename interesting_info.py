@@ -17,6 +17,10 @@
 # under the License.
 ##
 
+
+__author__ = "Jose Ignacio Carretero Guarde"
+
+
 import json
 import sys
 from functions import *
